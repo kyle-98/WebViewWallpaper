@@ -1,0 +1,87 @@
+﻿using System.Windows;
+using System.Windows.Interop;
+
+namespace WebViewWallpaper
+{
+     public partial class MainWindow : Window
+     {
+          public MainWindow()
+          {
+               InitializeComponent();
+
+               Left = SystemParameters.VirtualScreenLeft;
+               Top = SystemParameters.VirtualScreenTop;
+               Width = SystemParameters.VirtualScreenWidth;
+               Height = SystemParameters.VirtualScreenHeight;
+          }
+
+          private void Window_SourceInitialized(object sender, EventArgs e)
+          {
+               try
+               {
+                    SetupDesktopParent();
+               }
+               catch (Exception ex)
+               {
+                    MessageBox.Show($"Error during Win32Interop Setup: {ex.Message}", "Initialization Error");
+               }
+          }
+
+          // 2. Triggered after the window is initialized and set up.
+          private async void Window_Loaded(object sender, RoutedEventArgs e)
+          {
+               // Initialize WebView2 and load the content
+               await InitializeWebView();
+          }
+
+          private void SetupDesktopParent()
+          {
+               IntPtr desktopHandle = Win32Interop.GetDesktopWorkerW();
+
+               if (desktopHandle != IntPtr.Zero)
+               {
+                    var hwnd = new WindowInteropHelper(this).Handle;
+
+                    // Set parent
+                    Win32Interop.SetParent(hwnd, desktopHandle);
+
+                    // Set Z-order behind all windows
+                    Win32Interop.SetWindowPos(
+                        hwnd,
+                        Win32Interop.HWND_BOTTOM,
+                        0, 0, 0, 0,
+                        Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE
+                    );
+
+                    IntPtr currentStyle = Win32Interop.GetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE);
+                    IntPtr newStyle = new IntPtr(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
+                    Win32Interop.SetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE, newStyle);
+
+                    Console.WriteLine("WPF Window successfully parented to the desktop.");
+               }
+               else
+               {
+                    MessageBox.Show("Could not find the desktop parent window. Wallpaper may not function correctly.", "Setup Warning");
+               }
+          }
+
+          private async Task InitializeWebView()
+          {
+               // This ensures the WebView2 Core environment is created. 
+               try
+               {
+                    await WebViewControl.EnsureCoreWebView2Async(null);
+
+                    string urlToLoad = "https://www.youtube.com";
+
+                    WebViewControl.Source = new Uri(urlToLoad);
+               }
+               catch (Exception ex)
+               {
+                    MessageBox.Show($"WebView2 Initialization failed: {ex.Message}", "WebView Error");
+               }
+          }
+     }
+
+
+}
