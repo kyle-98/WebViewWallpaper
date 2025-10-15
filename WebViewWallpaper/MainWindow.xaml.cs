@@ -5,14 +5,14 @@ namespace WebViewWallpaper
 {
      public partial class MainWindow : Window
      {
-          public MainWindow()
+          public MainWindow(int left, int top, int width, int height)
           {
                InitializeComponent();
 
-               Left = SystemParameters.VirtualScreenLeft;
-               Top = SystemParameters.VirtualScreenTop;
-               Width = SystemParameters.VirtualScreenWidth;
-               Height = SystemParameters.VirtualScreenHeight;
+               Left = left;
+               Top = top;
+               Width = width;
+               Height = height;
           }
 
           private void Window_SourceInitialized(object sender, EventArgs e)
@@ -23,7 +23,7 @@ namespace WebViewWallpaper
                }
                catch (Exception ex)
                {
-                    MessageBox.Show($"Error during Win32Interop Setup: {ex.Message}", "Initialization Error");
+                    System.Windows.MessageBox.Show($"Error during Win32Interop Setup: {ex.Message}", "Initialization Error");
                }
           }
 
@@ -61,7 +61,7 @@ namespace WebViewWallpaper
                }
                else
                {
-                    MessageBox.Show("Could not find the desktop parent window. Wallpaper may not function correctly.", "Setup Warning");
+                    System.Windows.MessageBox.Show("Could not find the desktop parent window. Wallpaper may not function correctly.", "Setup Warning");
                }
           }
 
@@ -78,7 +78,7 @@ namespace WebViewWallpaper
                }
                catch (Exception ex)
                {
-                    MessageBox.Show($"WebView2 Initialization failed: {ex.Message}", "WebView Error");
+                    System.Windows.MessageBox.Show($"WebView2 Initialization failed: {ex.Message}", "WebView Error");
                }
           }
      }
