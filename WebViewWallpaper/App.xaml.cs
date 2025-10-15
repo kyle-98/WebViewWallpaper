@@ -1,6 +1,7 @@
 ﻿using System.Configuration;
 using System.Data;
 using System.Windows;
+using System.Windows.Interop;
 
 namespace WebViewWallpaper
 {
@@ -19,6 +20,14 @@ namespace WebViewWallpaper
                {
                     var window = new MainWindow(mon.Left, mon.Top, mon.Width, mon.Height);
                     window.Show();
+
+                    var hwnd = new WindowInteropHelper(window).Handle;
+                    Win32Interop.SetWindowPos(
+                        hwnd,
+                        Win32Interop.HWND_BOTTOM,
+                        0, 0, 0, 0,
+                        Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE | Win32Interop.SWP_SHOWWINDOW
+                    );
                }
           }
      }
