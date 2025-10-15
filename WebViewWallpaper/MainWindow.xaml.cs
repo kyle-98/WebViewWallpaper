@@ -13,6 +13,7 @@ namespace WebViewWallpaper
                Top = top;
                Width = width;
                Height = height;
+               WindowState = WindowState.Normal;
           }
 
           private void Window_SourceInitialized(object sender, EventArgs e)
