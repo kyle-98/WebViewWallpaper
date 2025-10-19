@@ -1,18 +1,23 @@
-﻿using System.Windows;
+﻿using System.Threading;
+using System.Windows;
 using System.Windows.Interop;
 
 namespace WebViewWallpaper
 {
      public partial class MainWindow : Window
      {
-          public MainWindow(int left, int top, int width, int height)
+
+          private MonitorHelper.MonitorInfo _monitorInfo;
+
+          public MainWindow(MonitorHelper.MonitorInfo monitor)
           {
                InitializeComponent();
+               _monitorInfo = monitor;
 
-               Left = left;
-               Top = top;
-               Width = width;
-               Height = height;
+               Left = _monitorInfo.Left;
+               Top = _monitorInfo.Top;
+               Width = _monitorInfo.Width;
+               Height = _monitorInfo.Height;
                WindowState = WindowState.Normal;
           }
 
@@ -45,6 +50,16 @@ namespace WebViewWallpaper
                     // Set parent
                     Win32Interop.SetParent(hwnd, desktopHandle);
 
+                    Win32Interop.GetWindowRect(desktopHandle, out var workerRect);
+                    Left = _monitorInfo.Left - workerRect.Left;
+                    Top = _monitorInfo.Top - workerRect.Top;
+                    Width = _monitorInfo.Width;
+                    Height = _monitorInfo.Height;
+
+                    IntPtr currentStyle = Win32Interop.GetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE);
+                    IntPtr newStyle = new IntPtr(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
+                    Win32Interop.SetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE, newStyle);
+
                     // Set Z-order behind all windows
                     Win32Interop.SetWindowPos(
                         hwnd,
@@ -53,10 +68,6 @@ namespace WebViewWallpaper
                         Win32Interop.SWP_NOMOVE | Win32Interop.SWP_NOSIZE | Win32Interop.SWP_NOACTIVATE
                     );
 
-                    IntPtr currentStyle = Win32Interop.GetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE);
-                    IntPtr newStyle = new IntPtr(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
-                    Win32Interop.SetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE, newStyle);
-
                     Console.WriteLine("WPF Window successfully parented to the desktop.");
                }
                else
@@ -64,7 +75,6 @@ namespace WebViewWallpaper
                     System.Windows.MessageBox.Show("Could not find the desktop parent window. Wallpaper may not function correctly.", "Setup Warning");
                }
           }
-
 
           private async Task InitializeWebView()
           {

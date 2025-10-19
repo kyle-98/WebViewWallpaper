@@ -16,9 +16,9 @@ namespace WebViewWallpaper
 
                var monitors = MonitorHelper.GetAllMonitors();
 
-               foreach (var mon in monitors)
+               foreach (var monitor in monitors)
                {
-                    var window = new MainWindow(mon.Left, mon.Top, mon.Width, mon.Height);
+                    var window = new MainWindow(monitor);
                     window.Show();
 
                     var hwnd = new WindowInteropHelper(window).Handle;

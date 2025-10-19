@@ -49,8 +49,19 @@ public static class Win32Interop
 
      private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+     [StructLayout(LayoutKind.Sequential)]
+     public struct RECT
+     {
+          public int Left, Top, Right, Bottom;
+     }
+
+     [DllImport("user32.dll")]
+     public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
      public static IntPtr GetDesktopWorkerW()
      {
+          // REFERENCE: https://web.archive.org/web/20250212211512/http://www.codeproject.com/Articles/856020/Draw-behind-Desktop-Icons-in-Windows
+          // Find the Progman window
           IntPtr progman = FindWindow("Progman", null);
           if (progman == IntPtr.Zero)
           {
@@ -58,36 +69,33 @@ public static class Win32Interop
                return IntPtr.Zero;
           }
 
-          // Send message to create WorkerW
+          // Send the 0x052C message to spawn the WorkerW behind desktop icons
+          // REFERENCE: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessagetimeouta (SMTO_NORMAL = 0x0000)
           SendMessageTimeout(progman, WM_SPAWN_WORKERW, IntPtr.Zero, IntPtr.Zero, 0x0000, 1000, out _);
 
           IntPtr workerW = IntPtr.Zero;
 
+          // Enumerate all top-level windows
           EnumWindows((topHandle, lParam) =>
           {
+               // Check if this window contains the SHELLDLL_DefView (this contains the desktop icons)
                IntPtr shellView = FindWindowEx(topHandle, IntPtr.Zero, "SHELLDLL_DefView", null);
                if (shellView != IntPtr.Zero)
                {
-                    return true;
-               }
-
-               IntPtr worker = FindWindowEx(IntPtr.Zero, topHandle, "WorkerW", null);
-               if (worker != IntPtr.Zero)
-               {
-                    workerW = topHandle; // parent WorkerW
+                    // If found, grab the next WorkerW window after it
+                    workerW = FindWindowEx(IntPtr.Zero, topHandle, "WorkerW", null);
                     return false; // stop enumeration
                }
 
-               return true; // continue enumeration
+               return true; // continue enumerating
           }, IntPtr.Zero);
 
           if (workerW == IntPtr.Zero)
-          {
                Debug.WriteLine("Could not find WorkerW after spawning.");
-          }
 
           return workerW;
      }
+
 
      public static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
      {
