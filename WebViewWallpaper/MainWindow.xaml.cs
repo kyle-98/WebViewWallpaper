@@ -38,6 +38,20 @@ namespace WebViewWallpaper
                await InitializeWebView();
           }
 
+          private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+          {
+               foreach(var window in System.Windows.Application.Current.Windows)
+               {
+                    if (window is MainWindow mw)
+                    {
+                         mw.WebViewControl.Dispose();
+                    }
+               }
+
+               GC.Collect();
+               GC.WaitForPendingFinalizers();
+          }
+
 
           private void SetupDesktopParent()
           {
