@@ -22,10 +22,10 @@ public static class MonitorHelper
           {
                monitors[i] = new MonitorInfo
                {
-                    Left = screens[i].Bounds.Left,
-                    Top = screens[i].Bounds.Top,
-                    Width = screens[i].Bounds.Width,
-                    Height = screens[i].Bounds.Height
+                    Left = screens[i].WorkingArea.Left,
+                    Top = screens[i].WorkingArea.Top,
+                    Width = screens[i].WorkingArea.Width,
+                    Height = screens[i].WorkingArea.Height
                };
           }
 

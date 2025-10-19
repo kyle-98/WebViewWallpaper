@@ -16,24 +16,23 @@ namespace WebViewWallpaper
                WindowState = WindowState.Normal;
           }
 
+
           private void Window_SourceInitialized(object sender, EventArgs e)
           {
-               try
-               {
-                    SetupDesktopParent();
-               }
-               catch (Exception ex)
-               {
-                    System.Windows.MessageBox.Show($"Error during Win32Interop Setup: {ex.Message}", "Initialization Error");
-               }
+               var hwnd = new WindowInteropHelper(this).Handle;
+               Win32Interop.HideFromAltTab(hwnd);
+               var source = HwndSource.FromHwnd(hwnd);
+               source.AddHook(Win32Interop.WndProc);
           }
 
-          // 2. Triggered after the window is initialized and set up.
+
           private async void Window_Loaded(object sender, RoutedEventArgs e)
           {
                // Initialize WebView2 and load the content
+               SetupDesktopParent();
                await InitializeWebView();
           }
+
 
           private void SetupDesktopParent()
           {
@@ -65,6 +64,7 @@ namespace WebViewWallpaper
                     System.Windows.MessageBox.Show("Could not find the desktop parent window. Wallpaper may not function correctly.", "Setup Warning");
                }
           }
+
 
           private async Task InitializeWebView()
           {

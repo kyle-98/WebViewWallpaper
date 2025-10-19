@@ -15,6 +15,8 @@ public static class Win32Interop
      public const uint SWP_NOACTIVATE = 0x0010;
      public const uint SWP_SHOWWINDOW = 0x0040;
 
+     private const int WM_WINDOWPOSCHANGED = 0x0047;
+
      // P/Invoke for SetWindowPos
      [DllImport("user32.dll")]
      public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
@@ -32,10 +34,10 @@ public static class Win32Interop
 
      // --- Other Win32 P/Invoke for WorkerW ---
      [DllImport("user32.dll", SetLastError = true)]
-     public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+     public static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
 
      [DllImport("user32.dll", SetLastError = true)]
-     public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+     public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string? lpszWindow);
 
      [DllImport("user32.dll", CharSet = CharSet.Auto)]
      public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam,
@@ -85,5 +87,30 @@ public static class Win32Interop
           }
 
           return workerW;
+     }
+
+     public static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+     {
+          if (msg == WM_WINDOWPOSCHANGED)
+          {
+               SetWindowPos(
+                   hwnd,
+                   HWND_BOTTOM,
+                   0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+               );
+          }
+
+          return IntPtr.Zero;
+     }
+
+     public static void HideFromAltTab(IntPtr hwnd)
+     {
+          const int GWL_EXSTYLE = -20;
+          const int WS_EX_TOOLWINDOW = 0x00000080;
+
+          IntPtr exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+          IntPtr newStyle = new IntPtr(exStyle.ToInt64() | WS_EX_TOOLWINDOW);
+          SetWindowLongPtr(hwnd, GWL_EXSTYLE, newStyle);
      }
 }
