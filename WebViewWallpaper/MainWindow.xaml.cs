@@ -1,6 +1,8 @@
-﻿using System.Threading;
+﻿using Microsoft.Web.WebView2.Wpf;
+using System.IO;
 using System.Windows;
 using System.Windows.Interop;
+using WebViewWallpaper.Settings;
 
 namespace WebViewWallpaper
 {
@@ -28,6 +30,8 @@ namespace WebViewWallpaper
                Win32Interop.HideFromAltTab(hwnd);
                var source = HwndSource.FromHwnd(hwnd);
                source.AddHook(Win32Interop.WndProc);
+
+               
           }
 
 
@@ -35,6 +39,7 @@ namespace WebViewWallpaper
           {
                // Initialize WebView2 and load the content
                SetupDesktopParent();
+
                await InitializeWebView();
           }
 
@@ -96,14 +101,44 @@ namespace WebViewWallpaper
                try
                {
                     await WebViewControl.EnsureCoreWebView2Async(null);
-
-                    string urlToLoad = "https://www.youtube.com";
-
-                    WebViewControl.Source = new Uri(urlToLoad);
                }
                catch (Exception ex)
                {
                     System.Windows.MessageBox.Show($"WebView2 Initialization failed: {ex.Message}", "WebView Error");
+               }
+          }
+
+
+          public void ApplySettings(string URL)
+          {
+               string source;
+
+               if (File.Exists(URL))
+               {
+                    string normalized = URL.Replace("\\", "/");
+                    source = new Uri(normalized).AbsoluteUri;
+               }
+               else
+               {
+                    source = URL;
+               }
+
+               try
+               {
+                    WebViewControl.Source = new Uri(URL);
+               }
+               catch(Exception ex)
+               {
+                    System.Windows.MessageBox.Show($"Error settings wallpaper: {ex.Message}", "Save Error");
+                    return;
+               }
+          }
+
+          public void ReloadWallpaper()
+          {
+               if (WebViewControl != null && WebViewControl.CoreWebView2 != null)
+               {
+                    WebViewControl.Reload();
                }
           }
      }
