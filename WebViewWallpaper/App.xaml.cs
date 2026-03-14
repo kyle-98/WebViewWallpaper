@@ -15,7 +15,6 @@ namespace WebViewWallpaper
           private AppSettings _settings;
           private CoreWebView2Environment _sharedEnvironment;
 
-
           protected override async void OnStartup(StartupEventArgs e)
           {
                base.OnStartup(e);
@@ -47,6 +46,8 @@ namespace WebViewWallpaper
                TaskTrayManager.OnSettingsClicked += ShowSettingsWindow;
                TaskTrayManager.OnReloadClicked += ReloadWallpaper;
                TaskTrayManager.OnExitClicked += ExitApp;
+
+               StartOptimizationTimer();
           }
 
           private void ShowSettingsWindow()
@@ -82,6 +83,23 @@ namespace WebViewWallpaper
           {
                TaskTrayManager.Dispose();
                Current.Shutdown();
+          }
+
+          private static void StartOptimizationTimer()
+          {
+               var timer = new System.Windows.Threading.DispatcherTimer();
+               timer.Interval = TimeSpan.FromMilliseconds(500);
+               timer.Tick += (s, e) =>
+               {
+                    foreach (Window window in Current.Windows)
+                    {
+                         if (window is MainWindow mw)
+                         {
+                              mw.UpdatePlaybackState();
+                         }
+                    }
+               };
+               timer.Start();
           }
      }
 

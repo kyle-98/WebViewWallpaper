@@ -17,6 +17,36 @@ public static class Win32Interop
 
      private const int WM_WINDOWPOSCHANGED = 0x0047;
 
+     public const int SW_SHOWMAXIMIZED = 3;
+     public const uint MONITOR_DEFAULTTONULL = 0;
+
+
+     [DllImport("user32.dll")]
+     public static extern IntPtr GetForegroundWindow();
+
+     [DllImport("user32.dll")]
+     public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+     [DllImport("user32.dll", SetLastError = true)]
+     [return: MarshalAs(UnmanagedType.Bool)]
+     public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+     [Serializable]
+     [StructLayout(LayoutKind.Sequential)]
+     public struct WINDOWPLACEMENT
+     {
+          public int length;
+          public int flags;
+          public int showCmd;
+          public Point ptMinPosition;
+          public Point ptMaxPosition;
+          public System.Windows.Rect rcNormalPosition;
+     }
+
+     [DllImport("user32.dll")]
+     [return: MarshalAs(UnmanagedType.Bool)]
+     public static extern bool IsWindowVisible(IntPtr hWnd);
+
      // P/Invoke for SetWindowPos
      [DllImport("user32.dll")]
      public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
@@ -45,9 +75,9 @@ public static class Win32Interop
 
      [DllImport("user32.dll")]
      [return: MarshalAs(UnmanagedType.Bool)]
-     private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+     public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
-     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
      [StructLayout(LayoutKind.Sequential)]
      public struct RECT

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Web.WebView2.Core;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 
@@ -10,6 +11,7 @@ namespace WebViewWallpaper
 
           private MonitorHelper.MonitorInfo _monitorInfo;
           private CoreWebView2Environment _env;
+          private bool _isPaused = false;
 
           public MainWindow(MonitorHelper.MonitorInfo monitor, CoreWebView2Environment env)
           {
@@ -142,6 +144,54 @@ namespace WebViewWallpaper
                if (WebViewControl != null && WebViewControl.CoreWebView2 != null)
                {
                     WebViewControl.Reload();
+               }
+          }
+
+          public bool IsThisMonitorObscured()
+          {
+               bool isObscured = false;
+
+               Win32Interop.EnumWindows((hWnd, lParam) =>
+               {
+                    if (Win32Interop.IsWindowVisible(hWnd))
+                    {
+                         Win32Interop.WINDOWPLACEMENT placement = new();
+                         placement.length = Marshal.SizeOf(placement);
+                         Win32Interop.GetWindowPlacement(hWnd, ref placement);
+
+                         // Is this specific window maximized?
+                         if (placement.showCmd == Win32Interop.SW_SHOWMAXIMIZED)
+                         {
+                              var windowScreen = Screen.FromHandle(hWnd);
+
+                              if (windowScreen.Bounds.Left == _monitorInfo.Left &&
+                                  windowScreen.Bounds.Top == _monitorInfo.Top)
+                              {
+                                   isObscured = true;
+                                   return false;
+                              }
+                         }
+                    }
+                    return true;
+               }, IntPtr.Zero);
+
+               return isObscured;
+          }
+
+          public async void UpdatePlaybackState()
+          {
+               bool shouldPause = IsThisMonitorObscured();
+
+               if (shouldPause == _isPaused) return;
+               _isPaused = shouldPause;
+
+               if (WebViewControl?.CoreWebView2 != null)
+               {
+                    string script = shouldPause
+                        ? "document.querySelectorAll('video').forEach(v => v.pause());"
+                        : "document.querySelectorAll('video').forEach(v => v.play());";
+
+                    await WebViewControl.ExecuteScriptAsync(script);
                }
           }
      }
