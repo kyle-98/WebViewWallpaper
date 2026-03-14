@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using Microsoft.Web.WebView2.Core;
+using System.IO;
+using System.Windows;
 using System.Windows.Interop;
 using WebViewWallpaper.Settings;
 using WebViewWallpaper.Utils;
@@ -11,19 +13,24 @@ namespace WebViewWallpaper
     public partial class App : System.Windows.Application
     {
           private AppSettings _settings;
+          private CoreWebView2Environment _sharedEnvironment;
 
 
-          protected override void OnStartup(StartupEventArgs e)
+          protected override async void OnStartup(StartupEventArgs e)
           {
                base.OnStartup(e);
 
                _settings = SettingsManager.Load();
 
+               string userDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WebViewWallpaper");
+
+               _sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+
                var monitors = MonitorHelper.GetAllMonitors();
 
                foreach (var monitor in monitors)
                {
-                    var window = new MainWindow(monitor);
+                    var window = new MainWindow(monitor, _sharedEnvironment);
                     window.Show();
                     window.ApplySettings(_settings.URL);
 

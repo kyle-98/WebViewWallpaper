@@ -1,8 +1,7 @@
-﻿using Microsoft.Web.WebView2.Wpf;
+﻿using Microsoft.Web.WebView2.Core;
 using System.IO;
 using System.Windows;
 using System.Windows.Interop;
-using WebViewWallpaper.Settings;
 
 namespace WebViewWallpaper
 {
@@ -10,11 +9,13 @@ namespace WebViewWallpaper
      {
 
           private MonitorHelper.MonitorInfo _monitorInfo;
+          private CoreWebView2Environment _env;
 
-          public MainWindow(MonitorHelper.MonitorInfo monitor)
+          public MainWindow(MonitorHelper.MonitorInfo monitor, CoreWebView2Environment env)
           {
                InitializeComponent();
                _monitorInfo = monitor;
+               _env = env;
 
                Left = _monitorInfo.Left;
                Top = _monitorInfo.Top;
@@ -100,7 +101,9 @@ namespace WebViewWallpaper
                // This ensures the WebView2 Core environment is created. 
                try
                {
-                    await WebViewControl.EnsureCoreWebView2Async(null);
+                    await WebViewControl.EnsureCoreWebView2Async(_env);
+                    WebViewControl.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    WebViewControl.CoreWebView2.Settings.IsZoomControlEnabled = false;
                }
                catch (Exception ex)
                {
