@@ -1,12 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
-public static class Win32Interop
+internal static class Win32Interop
 {
      public const int GWL_STYLE = -16;
      public const int WS_CHILD = 0x40000000;
      public const int WS_VISIBLE = 0x10000000;
      private const uint WM_SPAWN_WORKERW = 0x052C;
+     public const long WS_CAPTION = 0x00C00000;
 
      public static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
      public const uint SWP_NOMOVE = 0x0002;
@@ -20,9 +22,14 @@ public static class Win32Interop
      public const int SW_SHOWMAXIMIZED = 3;
      public const uint MONITOR_DEFAULTTONULL = 0;
 
+     public const int DWMWA_CLOAKED = 14;
+
 
      [DllImport("user32.dll")]
      public static extern IntPtr GetForegroundWindow();
+
+     [DllImport("dwmapi.dll")]
+     public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 
      [DllImport("user32.dll")]
      public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
@@ -55,6 +62,9 @@ public static class Win32Interop
      // P/Invoke for Get/SetWindowLongPtr
      [DllImport("user32.dll")]
      public static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+     [DllImport("user32.dll", CharSet = CharSet.Auto)]
+     public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
      [DllImport("user32.dll", SetLastError = true)]
      public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
@@ -151,4 +161,21 @@ public static class Win32Interop
           IntPtr newStyle = new IntPtr(exStyle.ToInt64() | WS_EX_TOOLWINDOW);
           SetWindowLongPtr(hwnd, GWL_EXSTYLE, newStyle);
      }
+
+
+     // Used for debugging only (Used to get the classname that is currently blocking the wallpaper from being animated)
+     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+     public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+     public static string GetWindowClassName(IntPtr hWnd)
+     {
+          StringBuilder sb = new StringBuilder(256);
+          if (GetClassName(hWnd, sb, sb.Capacity) > 0)
+          {
+               return sb.ToString();
+          }
+          return string.Empty;
+     }
+
+     
 }

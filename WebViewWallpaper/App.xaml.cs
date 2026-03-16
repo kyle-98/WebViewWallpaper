@@ -87,19 +87,22 @@ namespace WebViewWallpaper
 
           private static void StartOptimizationTimer()
           {
-               var timer = new System.Windows.Threading.DispatcherTimer();
-               timer.Interval = TimeSpan.FromMilliseconds(500);
-               timer.Tick += (s, e) =>
+               var timer = new System.Timers.Timer(500);
+               timer.Elapsed += (s, e) =>
                {
-                    foreach (Window window in Current.Windows)
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
-                         if (window is MainWindow mw)
+                         foreach (Window window in System.Windows.Application.Current.Windows)
                          {
-                              mw.UpdatePlaybackState();
+                              if (window is MainWindow mw)
+                              {
+                                   mw.UpdatePlaybackState();
+                              }
                          }
-                    }
+                    });
                };
-               timer.Start();
+               timer.AutoReset = true;
+               timer.Enabled = true;
           }
      }
 
