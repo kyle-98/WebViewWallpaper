@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Interop;
 using WebViewWallpaper.Settings;
 using WebViewWallpaper.Utils;
+using static Win32Interop;
 
 namespace WebViewWallpaper
 {
@@ -14,6 +15,8 @@ namespace WebViewWallpaper
     {
           private AppSettings _settings;
           private CoreWebView2Environment _sharedEnvironment;
+          private Win32Interop.WinEventDelegate _winEventDelegate;
+          private IntPtr _hookHandle;
 
           protected override async void OnStartup(StartupEventArgs e)
           {
@@ -23,7 +26,11 @@ namespace WebViewWallpaper
 
                string userDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WebViewWallpaper");
 
-               _sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+               var options = new CoreWebView2EnvironmentOptions
+               {
+                    AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion"
+               };
+               _sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataFolder, options);
 
                var monitors = MonitorHelper.GetAllMonitors();
 
@@ -47,7 +54,7 @@ namespace WebViewWallpaper
                TaskTrayManager.OnReloadClicked += ReloadWallpaper;
                TaskTrayManager.OnExitClicked += ExitApp;
 
-               StartOptimizationTimer();
+               SetupEventHook();
           }
 
           private void ShowSettingsWindow()
@@ -81,28 +88,40 @@ namespace WebViewWallpaper
 
           private void ExitApp()
           {
+               if (_hookHandle != IntPtr.Zero)
+                    Win32Interop.UnhookWinEvent(_hookHandle);
                TaskTrayManager.Dispose();
                Current.Shutdown();
           }
 
-          private static void StartOptimizationTimer()
+          private void SetupEventHook()
           {
-               var timer = new System.Timers.Timer(500);
-               timer.Elapsed += (s, e) =>
+               // Store the delegate in a class member to prevent GC
+               _winEventDelegate = new Win32Interop.WinEventDelegate(WinEventCallback);
+
+               // Listen for foreground changes and location changes (moves/maximizes)
+               _hookHandle = Win32Interop.SetWinEventHook(
+                   Win32Interop.EVENT_SYSTEM_FOREGROUND,
+                   Win32Interop.EVENT_OBJECT_LOCATIONCHANGE,
+                   IntPtr.Zero,
+                   _winEventDelegate,
+                   0, 0,
+                   Win32Interop.WINEVENT_OUTOFCONTEXT);
+          }
+
+          private void WinEventCallback(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+          {
+               // Filter out non-window objects (like cursor moves or menu items)
+               if (idObject != 0) return;
+
+               // Trigger the visibility check across all wallpaper windows
+               foreach (Window window in Current.Windows)
                {
-                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    if (window is MainWindow mw)
                     {
-                         foreach (Window window in System.Windows.Application.Current.Windows)
-                         {
-                              if (window is MainWindow mw)
-                              {
-                                   mw.UpdatePlaybackState();
-                              }
-                         }
-                    });
-               };
-               timer.AutoReset = true;
-               timer.Enabled = true;
+                         mw.UpdatePlaybackState();
+                    }
+               }
           }
      }
 

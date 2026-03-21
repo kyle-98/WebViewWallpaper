@@ -29,9 +29,22 @@ internal static class Win32Interop
 
      // Desktop Windows Manager Attributes
      public const int DWMWA_CLOAKED = 14;                             // Attribute to check if a window is cloaked. This is some bullshit windows does to UWP apps like settings instead of closing them fully
+
+     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+     public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
+     public const uint WINEVENT_OUTOFCONTEXT = 0;
+     public const int WM_DISPLAYCHANGE = 0x007E;
      #endregion
 
      #region Imports
+
+     public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+     [DllImport("user32.dll")]
+     public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+     [DllImport("user32.dll")]
+     public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
      // Gets the handle (HWND) of the window currently in the foreground (focused)
      [DllImport("user32.dll")]
@@ -189,6 +202,11 @@ internal static class Win32Interop
                    0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
                );
+          }
+
+          if (msg == WM_DISPLAYCHANGE)
+          {
+               MonitorHelper.RefreshCache();
           }
 
           return IntPtr.Zero;
