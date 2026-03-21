@@ -1,5 +1,4 @@
 ﻿using Microsoft.Web.WebView2.Core;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -10,8 +9,8 @@ namespace WebViewWallpaper
      public partial class MainWindow : Window
      {
 
-          private MonitorHelper.MonitorInfo _monitorInfo;
-          private CoreWebView2Environment _env;
+          private readonly MonitorHelper.MonitorInfo _monitorInfo;
+          private readonly CoreWebView2Environment _env;
           private bool _isPaused = false;
 
           // Enable debugging output to the console
@@ -30,6 +29,7 @@ namespace WebViewWallpaper
                WindowState = WindowState.Normal;
           }
 
+          #region Event Functions
 
           private void Window_SourceInitialized(object sender, EventArgs e)
           {
@@ -37,8 +37,6 @@ namespace WebViewWallpaper
                Win32Interop.HideFromAltTab(hwnd);
                var source = HwndSource.FromHwnd(hwnd);
                source.AddHook(Win32Interop.WndProc);
-
-               
           }
 
 
@@ -63,8 +61,13 @@ namespace WebViewWallpaper
                GC.Collect();
                GC.WaitForPendingFinalizers();
           }
+          #endregion
 
 
+          #region Helper Functions
+          /// <summary>
+          /// Setup the WPF application to be parented to the desktop
+          /// </summary>
           private void SetupDesktopParent()
           {
                IntPtr desktopHandle = Win32Interop.GetDesktopWorkerW();
@@ -83,7 +86,7 @@ namespace WebViewWallpaper
                     Height = _monitorInfo.Height;
 
                     IntPtr currentStyle = Win32Interop.GetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE);
-                    IntPtr newStyle = new IntPtr(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
+                    IntPtr newStyle = new(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
                     Win32Interop.SetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE, newStyle);
 
                     // Set Z-order behind all windows
@@ -103,9 +106,13 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Initialize a webview
+          /// </summary>
+          /// <returns>Asynchronous task that is completed upon initializing the webview</returns>
           private async Task InitializeWebView()
           {
-               // This ensures the WebView2 Core environment is created. 
+               // This ensures the webview is created properly 
                try
                {
                     await WebViewControl.EnsureCoreWebView2Async(_env);
@@ -124,20 +131,12 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Apply application settings input by the user
+          /// </summary>
+          /// <param name="URL">URL to the page the user saved in the settings dialog</param>
           public void ApplySettings(string URL)
           {
-               string source;
-
-               if (File.Exists(URL))
-               {
-                    string normalized = URL.Replace("\\", "/");
-                    source = new Uri(normalized).AbsoluteUri;
-               }
-               else
-               {
-                    source = URL;
-               }
-
                try
                {
                     WebViewControl.Source = new Uri(URL);
@@ -150,6 +149,9 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Refresh the web view controller
+          /// </summary>
           public void ReloadWallpaper()
           {
                if (WebViewControl != null && WebViewControl.CoreWebView2 != null)
@@ -159,6 +161,10 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Check if the desktop on a specific monitor is obscured by a window being maximized
+          /// </summary>
+          /// <returns>True if the monitor has a maximized window, false if it doesnt</returns>
           public bool IsThisMonitorObscured()
           {
                bool isObscured = false;
@@ -171,12 +177,12 @@ namespace WebViewWallpaper
                     Win32Interop.DwmGetWindowAttribute(hWnd, Win32Interop.DWMWA_CLOAKED, out int cloaked, sizeof(int));
                     if (cloaked != 0) return true;
 
-                    StringBuilder sb = new StringBuilder(256);
-                    Win32Interop.GetWindowText(hWnd, sb, 256);
+                    StringBuilder sb = new(512);
+                    Win32Interop.GetWindowText(hWnd, sb, 512);
                     string title = sb.ToString();
 
-                    StringBuilder sbClass = new StringBuilder(256);
-                    Win32Interop.GetClassName(hWnd, sbClass, 256);
+                    StringBuilder sbClass = new(512);
+                    Win32Interop.GetClassName(hWnd, sbClass, 512);
                     string className = sbClass.ToString();
 
                     if (string.IsNullOrWhiteSpace(title)) return true;
@@ -223,6 +229,9 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Update the playback state of video elements in the webview.
+          /// </summary>
           public async void UpdatePlaybackState()
           {
                bool shouldPause = IsThisMonitorObscured();
@@ -244,7 +253,6 @@ namespace WebViewWallpaper
                     catch { }
                }
           }
+          #endregion
      }
-
-
 }
