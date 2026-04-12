@@ -1,20 +1,26 @@
-﻿using Microsoft.Web.WebView2.Wpf;
-using System.IO;
+﻿using Microsoft.Web.WebView2.Core;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Interop;
-using WebViewWallpaper.Settings;
 
 namespace WebViewWallpaper
 {
      public partial class MainWindow : Window
      {
 
-          private MonitorHelper.MonitorInfo _monitorInfo;
+          private readonly MonitorHelper.MonitorInfo _monitorInfo;
+          private readonly CoreWebView2Environment _env;
+          private bool _isPaused = false;
 
-          public MainWindow(MonitorHelper.MonitorInfo monitor)
+          // Enable debugging output to the console
+          private const bool IS_DEBUG = false;
+
+          public MainWindow(MonitorHelper.MonitorInfo monitor, CoreWebView2Environment env)
           {
                InitializeComponent();
                _monitorInfo = monitor;
+               _env = env;
 
                Left = _monitorInfo.Left;
                Top = _monitorInfo.Top;
@@ -23,6 +29,7 @@ namespace WebViewWallpaper
                WindowState = WindowState.Normal;
           }
 
+          #region Event Functions
 
           private void Window_SourceInitialized(object sender, EventArgs e)
           {
@@ -30,8 +37,6 @@ namespace WebViewWallpaper
                Win32Interop.HideFromAltTab(hwnd);
                var source = HwndSource.FromHwnd(hwnd);
                source.AddHook(Win32Interop.WndProc);
-
-               
           }
 
 
@@ -56,8 +61,13 @@ namespace WebViewWallpaper
                GC.Collect();
                GC.WaitForPendingFinalizers();
           }
+          #endregion
 
 
+          #region Helper Functions
+          /// <summary>
+          /// Setup the WPF application to be parented to the desktop
+          /// </summary>
           private void SetupDesktopParent()
           {
                IntPtr desktopHandle = Win32Interop.GetDesktopWorkerW();
@@ -76,7 +86,7 @@ namespace WebViewWallpaper
                     Height = _monitorInfo.Height;
 
                     IntPtr currentStyle = Win32Interop.GetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE);
-                    IntPtr newStyle = new IntPtr(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
+                    IntPtr newStyle = new(currentStyle.ToInt64() | Win32Interop.WS_CHILD | Win32Interop.WS_VISIBLE);
                     Win32Interop.SetWindowLongPtr(hwnd, Win32Interop.GWL_STYLE, newStyle);
 
                     // Set Z-order behind all windows
@@ -95,12 +105,24 @@ namespace WebViewWallpaper
                }
           }
 
+
+          /// <summary>
+          /// Initialize a webview
+          /// </summary>
+          /// <returns>Asynchronous task that is completed upon initializing the webview</returns>
           private async Task InitializeWebView()
           {
-               // This ensures the WebView2 Core environment is created. 
+               // This ensures the webview is created properly 
                try
                {
-                    await WebViewControl.EnsureCoreWebView2Async(null);
+                    await WebViewControl.EnsureCoreWebView2Async(_env);
+                    WebViewControl.CoreWebView2.NavigationCompleted += (s, e) =>
+                    {
+                         _isPaused = !IsThisMonitorObscured();
+                         UpdatePlaybackState();
+                    };
+                    WebViewControl.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                    WebViewControl.CoreWebView2.Settings.IsZoomControlEnabled = false;
                }
                catch (Exception ex)
                {
@@ -109,20 +131,12 @@ namespace WebViewWallpaper
           }
 
 
+          /// <summary>
+          /// Apply application settings input by the user
+          /// </summary>
+          /// <param name="URL">URL to the page the user saved in the settings dialog</param>
           public void ApplySettings(string URL)
           {
-               string source;
-
-               if (File.Exists(URL))
-               {
-                    string normalized = URL.Replace("\\", "/");
-                    source = new Uri(normalized).AbsoluteUri;
-               }
-               else
-               {
-                    source = URL;
-               }
-
                try
                {
                     WebViewControl.Source = new Uri(URL);
@@ -134,6 +148,10 @@ namespace WebViewWallpaper
                }
           }
 
+
+          /// <summary>
+          /// Refresh the web view controller
+          /// </summary>
           public void ReloadWallpaper()
           {
                if (WebViewControl != null && WebViewControl.CoreWebView2 != null)
@@ -141,7 +159,100 @@ namespace WebViewWallpaper
                     WebViewControl.Reload();
                }
           }
+
+
+          /// <summary>
+          /// Check if the desktop on a specific monitor is obscured by a window being maximized
+          /// </summary>
+          /// <returns>True if the monitor has a maximized window, false if it doesnt</returns>
+          public bool IsThisMonitorObscured()
+          {
+               bool isObscured = false;
+               IntPtr myHwnd = new WindowInteropHelper(this).Handle;
+
+               Win32Interop.EnumWindows((hWnd, lParam) =>
+               {
+                    if (hWnd == myHwnd || !Win32Interop.IsWindowVisible(hWnd)) return true;
+
+                    Win32Interop.DwmGetWindowAttribute(hWnd, Win32Interop.DWMWA_CLOAKED, out int cloaked, sizeof(int));
+                    if (cloaked != 0) return true;
+
+                    StringBuilder sb = new(512);
+                    Win32Interop.GetWindowText(hWnd, sb, 512);
+                    string title = sb.ToString();
+
+                    StringBuilder sbClass = new(512);
+                    Win32Interop.GetClassName(hWnd, sbClass, 512);
+                    string className = sbClass.ToString();
+
+                    if (string.IsNullOrWhiteSpace(title)) return true;
+
+                    if (title == "Program Manager" ||
+                        title == "Microsoft Text Input Application" ||
+                        className == "WorkerW" ||
+                        className == "Shell_TrayWnd")
+                         return true;
+
+                    Win32Interop.WINDOWPLACEMENT placement = new();
+                    placement.length = Marshal.SizeOf(placement);
+                    Win32Interop.GetWindowPlacement(hWnd, ref placement);
+
+                    // 4. Check if maximized
+                    if (placement.showCmd == Win32Interop.SW_SHOWMAXIMIZED)
+                    {
+                         if (Win32Interop.GetWindowRect(hWnd, out var rect))
+                         {
+                              int windowWidth = rect.Right - rect.Left;
+                              int windowHeight = rect.Bottom - rect.Top;
+
+                              int cx = rect.Left + (windowWidth / 2);
+                              int cy = rect.Top + (windowHeight / 2);
+
+                              if (cx >= _monitorInfo.Left && cx < (_monitorInfo.Left + _monitorInfo.Width) &&
+                                  cy >= _monitorInfo.Top && cy < (_monitorInfo.Top + _monitorInfo.Height))
+                              {
+                                   if (windowWidth > (_monitorInfo.Width * 0.8))
+                                   {
+                                        // This will print out the name of the class that is blocking the wallpaper from animating
+                                        if (IS_DEBUG)
+                                             System.Diagnostics.Debug.WriteLine($"PAUSING: Monitor {_monitorInfo.Left} blocked by [{title}] Class: [{className}]");
+                                        isObscured = true;
+                                        return false;
+                                   }
+                              }
+                         }
+                    }
+                    return true;
+               }, IntPtr.Zero);
+
+               return isObscured;
+          }
+
+
+          /// <summary>
+          /// Update the playback state of video elements in the webview.
+          /// </summary>
+          public async void UpdatePlaybackState()
+          {
+               bool shouldPause = IsThisMonitorObscured();
+
+               if (shouldPause == _isPaused) return;
+               _isPaused = shouldPause;
+
+               if (WebViewControl?.CoreWebView2 != null)
+               {
+                    try
+                    {
+                         string script = shouldPause
+                             ? "document.querySelectorAll('video').forEach(v => v.pause());"
+                             : "document.querySelectorAll('video').forEach(v => v.play());";
+
+                         await WebViewControl.ExecuteScriptAsync(script);
+
+                    }
+                    catch { }
+               }
+          }
+          #endregion
      }
-
-
 }
